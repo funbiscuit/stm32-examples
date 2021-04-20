@@ -1,3 +1,3 @@
-# STM32H7 Examples
+# STM32 Examples
 
-A collection of examples for H7 (tested with H743ZI).
+A collection of examples for STM32 microcontrollers.

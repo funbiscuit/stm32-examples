@@ -2,3 +2,5 @@
 
 This example include simple blink code. LED, connected to PB7 will blink
 with 1Hz frequency.
+
+Tested with STM32H743ZI.
