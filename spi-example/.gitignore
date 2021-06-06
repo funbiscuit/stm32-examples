@@ -1,0 +1,13 @@
+# generated files (stm32cubemx)
+/.mxproject
+/Drivers/
+/Middlewares/
+
+# IAR settings
+/EWARM/settings/
+/EWARM/*.dep
+/EWARM/*.ewt
+
+# idea settings
+/.idea/
+/*build*/
