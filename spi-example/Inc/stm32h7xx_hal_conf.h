@@ -69,7 +69,7 @@ extern "C" {
 /* #define HAL_SD_MODULE_ENABLED   */
 /* #define HAL_MMC_MODULE_ENABLED   */
 /* #define HAL_SPDIFRX_MODULE_ENABLED   */
-/* #define HAL_SPI_MODULE_ENABLED   */
+#define HAL_SPI_MODULE_ENABLED
 /* #define HAL_SWPMI_MODULE_ENABLED   */
 #define HAL_TIM_MODULE_ENABLED
 /* #define HAL_UART_MODULE_ENABLED   */
@@ -431,7 +431,9 @@ extern "C" {
 #endif /* HAL_SDRAM_MODULE_ENABLED */
 
 #ifdef HAL_SPI_MODULE_ENABLED
+
 #include "stm32h7xx_hal_spi.h"
+
 #endif /* HAL_SPI_MODULE_ENABLED */
 
 #ifdef HAL_SPDIFRX_MODULE_ENABLED
