@@ -6,97 +6,159 @@
 #include "stm32h7xx_hal.h"
 #include "core_cm7.h"
 
+#define BUFFER_SIZE (40*1024)
+
 extern SPI_HandleTypeDef hspi1;
 extern SPI_HandleTypeDef hspi3;
 
 extern SPI_HandleTypeDef hspi4;
 extern SPI_HandleTypeDef hspi5;
-#define BUFFER_SIZE (40*1024)
 
-static uint16_t buffer[BUFFER_SIZE] __attribute__ ((aligned (32)));
-static uint16_t buffer2[BUFFER_SIZE] __attribute__ ((aligned (32)));
-static uint16_t buffer3[BUFFER_SIZE] __attribute__ ((aligned (32)));
-static uint16_t buffer4[BUFFER_SIZE] __attribute__ ((aligned (32)));
+static uint16_t line1RxBuffer[BUFFER_SIZE] __attribute__ ((aligned (32)));
+static uint16_t line1TxBuffer[BUFFER_SIZE] __attribute__ ((aligned (32)));
+static uint16_t line2TxBuffer[BUFFER_SIZE] __attribute__ ((aligned (32)));
+static uint16_t line2RxBuffer[BUFFER_SIZE] __attribute__ ((aligned (32)));
 
-static uint32_t start = 0;
-static uint32_t start2 = 0;
+static uint32_t line1TxStart = 0;
+static uint32_t line2TxStart = 0;
 
 bool flag = true;
 bool flag2 = true;
 
+SPI_HandleTypeDef *line1TX;
+SPI_HandleTypeDef *line1RX;
+SPI_HandleTypeDef *line2TX;
+SPI_HandleTypeDef *line2RX;
+
+static void setTxBusy(int line, int isBusy);
+
+static void setRxBusy(int line, int isBusy);
+
+static int isTxBusy(void);
+
+static int isRxBusy(void);
+
+static void transmissionTick(void);
+
 _Noreturn void userRun(void) {
-    memset(buffer, 0, BUFFER_SIZE);
-    memset(buffer4, 0, BUFFER_SIZE);
-    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GPIOG, GPIO_PIN_1, GPIO_PIN_SET);
+    memset(line1RxBuffer, 0, BUFFER_SIZE);
+    memset(line2RxBuffer, 0, BUFFER_SIZE);
+
+    // line1TX -> line2RX
+    // line1RX <- line2TX
+    line1TX = &hspi1;
+    line2TX = &hspi5;
+    line1RX = &hspi4;
+    line2RX = &hspi3;
 
     for (int i = 0; i < BUFFER_SIZE; ++i) {
-        buffer2[i] = i;
-        buffer3[i] = i + 10;
+        line1TxBuffer[i] = i;
+        line2TxBuffer[i] = i + 10;
     }
     SCB_CleanDCache();
-
-    HAL_SPI_Receive_DMA(&hspi3, (uint8_t *) buffer, BUFFER_SIZE);
-    HAL_SPI_Receive_DMA(&hspi4, (uint8_t *) buffer4, BUFFER_SIZE);
+    setTxBusy(0, 0);
+    setTxBusy(1, 0);
+    setRxBusy(0, 1);
+    setRxBusy(1, 1);
 
     while (true) {
-        if (flag) {
-            flag = false;
-            HAL_Delay(5);
-            start = HAL_GetTick();
-            HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
-            HAL_SPI_Transmit_DMA(&hspi1, (uint8_t *) buffer2, BUFFER_SIZE);
-        }
-        if (flag2) {
-            flag2 = false;
-            HAL_Delay(5);
-            start2 = HAL_GetTick();
-            HAL_GPIO_WritePin(GPIOG, GPIO_PIN_1, GPIO_PIN_RESET);
-            HAL_SPI_Transmit_DMA(&hspi5, (uint8_t *) buffer3, BUFFER_SIZE);
-        }
-
+        transmissionTick();
         HAL_Delay(5);
     }
 }
 
 void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
-    if (hspi == &hspi3) {
-        uint32_t ticks = HAL_GetTick() - start;
-        SCB_CleanInvalidateDCache_by_Addr((uint32_t *) buffer, BUFFER_SIZE * sizeof(uint16_t));
+    if (hspi == line1RX) {
+        setRxBusy(1, 1);
+        uint32_t ticks = HAL_GetTick() - line2TxStart;
+        // received data from peripheral to memory, need to invalidate DCache
+        SCB_InvalidateDCache_by_Addr((uint32_t *) line1RxBuffer, BUFFER_SIZE * sizeof(uint16_t));
         HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
         for (int i = 0; i < BUFFER_SIZE; ++i) {
-            if (buffer[i] != buffer2[i]) {
+            if (line1RxBuffer[i] != line2TxBuffer[i]) {
                 int iii = 1;
             }
         }
-        memset(buffer, 0, BUFFER_SIZE);
-        SCB_CleanInvalidateDCache_by_Addr((uint32_t *) buffer, BUFFER_SIZE * sizeof(uint16_t));
-    } else if (hspi == &hspi4) {
-        uint32_t ticks = HAL_GetTick() - start2;
-        SCB_CleanInvalidateDCache_by_Addr((uint32_t *) buffer4, BUFFER_SIZE * sizeof(uint16_t));
+        memset(line1RxBuffer, 0, BUFFER_SIZE);
+        // wrote data (with memset) to memory which is used by DMA, need to clean DCache
+        SCB_CleanDCache_by_Addr((uint32_t *) line1RxBuffer, BUFFER_SIZE * sizeof(uint16_t));
+
+    } else if (hspi == line2RX) {
+        setRxBusy(2, 1);
+        uint32_t ticks = HAL_GetTick() - line1TxStart;
+        // received data from peripheral to memory, need to invalidate DCache
+        SCB_InvalidateDCache_by_Addr((uint32_t *) line2RxBuffer, BUFFER_SIZE * sizeof(uint16_t));
         HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
         for (int i = 0; i < BUFFER_SIZE; ++i) {
-            if (buffer3[i] != buffer4[i]) {
+            if (line2RxBuffer[i] != line1TxBuffer[i]) {
                 int iii = 1;
             }
         }
-        memset(buffer4, 0, BUFFER_SIZE);
-        SCB_CleanInvalidateDCache_by_Addr((uint32_t *) buffer4, BUFFER_SIZE * sizeof(uint32_t));
+        memset(line2RxBuffer, 0, BUFFER_SIZE);
+        // wrote data (with memset) to memory which is used by DMA, need to clean DCache
+        SCB_CleanDCache_by_Addr((uint32_t *) line2RxBuffer, BUFFER_SIZE * sizeof(uint16_t));
     }
 }
 
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
-    uint32_t ticks = HAL_GetTick() - start;
-
-    if (hspi == &hspi1) {
-//        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
-        flag = true;
-    } else if (hspi == &hspi5) {
-//        HAL_GPIO_WritePin(GPIOG, GPIO_PIN_1, GPIO_PIN_SET);
-        flag2 = true;
+    if (hspi == line1TX) {
+        setTxBusy(1, 0);
+    } else if (hspi == line2TX) {
+        setTxBusy(2, 0);
     }
 }
 
 void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi) {
     int ii = 0;
+}
+
+static void setTxBusy(int line, int isBusy) {
+    if (line == 1) {
+        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, isBusy ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    } else {
+        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, isBusy ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    }
+}
+
+static void setRxBusy(int line, int isBusy) {
+    if (line == 1) {
+        HAL_GPIO_WritePin(GPIOG, GPIO_PIN_1, isBusy ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    } else {
+        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, isBusy ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    }
+}
+
+static int isTxBusy(void) {
+    return HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_14) == GPIO_PIN_RESET;
+}
+
+static int isRxBusy(void) {
+    return HAL_GPIO_ReadPin(GPIOG, GPIO_PIN_1) == GPIO_PIN_RESET;
+}
+
+static void transmissionTick(void) {
+    // check if we can begin receiving
+    if (line1RX->State == HAL_SPI_STATE_READY && !isTxBusy()) {
+        // we are ready to receive and no one is sending - okay to receive
+        setRxBusy(1, 0);
+        HAL_SPI_Receive_DMA(line1RX, (uint8_t *) line1RxBuffer, BUFFER_SIZE);
+    }
+    if (line2RX->State == HAL_SPI_STATE_READY && !isTxBusy()) {
+        setRxBusy(2, 0);
+        HAL_SPI_Receive_DMA(line2RX, (uint8_t *) line2RxBuffer, BUFFER_SIZE);
+    }
+
+    // check if we can begin transmitting
+    if (line1TX->State == HAL_SPI_STATE_READY && !isRxBusy()) {
+        // we are ready to send and other end is ready to receive
+        setTxBusy(1, 1);
+        line1TxStart = HAL_GetTick();
+        HAL_SPI_Transmit_DMA(line1TX, (uint8_t *) line1TxBuffer, BUFFER_SIZE);
+    }
+    if (line2TX->State == HAL_SPI_STATE_READY && !isRxBusy()) {
+        // we are ready to send and other end is ready to receive
+        setTxBusy(2, 1);
+        line2TxStart = HAL_GetTick();
+        HAL_SPI_Transmit_DMA(line2TX, (uint8_t *) line2TxBuffer, BUFFER_SIZE);
+    }
 }

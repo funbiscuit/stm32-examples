@@ -140,21 +140,12 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi) {
         /* Peripheral clock enable */
         __HAL_RCC_SPI3_CLK_ENABLE();
 
-        __HAL_RCC_GPIOA_CLK_ENABLE();
         __HAL_RCC_GPIOB_CLK_ENABLE();
         __HAL_RCC_GPIOC_CLK_ENABLE();
         /**SPI3 GPIO Configuration
-        PA4     ------> SPI3_NSS
         PB2     ------> SPI3_MOSI
         PC10     ------> SPI3_SCK
         */
-        GPIO_InitStruct.Pin = GPIO_PIN_4;
-        GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-        GPIO_InitStruct.Pull = GPIO_NOPULL;
-        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
-        GPIO_InitStruct.Alternate = GPIO_AF6_SPI3;
-        HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
         GPIO_InitStruct.Pin = GPIO_PIN_2;
         GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
         GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -178,7 +169,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi) {
         hdma_spi3_rx.Init.MemInc = DMA_MINC_ENABLE;
         hdma_spi3_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
         hdma_spi3_rx.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
-        hdma_spi3_rx.Init.Mode = DMA_CIRCULAR;
+        hdma_spi3_rx.Init.Mode = DMA_NORMAL;
         hdma_spi3_rx.Init.Priority = DMA_PRIORITY_MEDIUM;
         hdma_spi3_rx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
         if (HAL_DMA_Init(&hdma_spi3_rx) != HAL_OK) {
@@ -203,10 +194,9 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi) {
         __HAL_RCC_GPIOE_CLK_ENABLE();
         /**SPI4 GPIO Configuration
         PE2     ------> SPI4_SCK
-        PE4     ------> SPI4_NSS
         PE6     ------> SPI4_MOSI
         */
-        GPIO_InitStruct.Pin = GPIO_PIN_2 | GPIO_PIN_4 | GPIO_PIN_6;
+        GPIO_InitStruct.Pin = GPIO_PIN_2 | GPIO_PIN_6;
         GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
         GPIO_InitStruct.Pull = GPIO_NOPULL;
         GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
@@ -222,7 +212,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi) {
         hdma_spi4_rx.Init.MemInc = DMA_MINC_ENABLE;
         hdma_spi4_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
         hdma_spi4_rx.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
-        hdma_spi4_rx.Init.Mode = DMA_CIRCULAR;
+        hdma_spi4_rx.Init.Mode = DMA_NORMAL;
         hdma_spi4_rx.Init.Priority = DMA_PRIORITY_MEDIUM;
         hdma_spi4_rx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
         if (HAL_DMA_Init(&hdma_spi4_rx) != HAL_OK) {
@@ -320,12 +310,9 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef *hspi) {
         __HAL_RCC_SPI3_CLK_DISABLE();
 
         /**SPI3 GPIO Configuration
-        PA4     ------> SPI3_NSS
         PB2     ------> SPI3_MOSI
         PC10     ------> SPI3_SCK
         */
-        HAL_GPIO_DeInit(GPIOA, GPIO_PIN_4);
-
         HAL_GPIO_DeInit(GPIOB, GPIO_PIN_2);
 
         HAL_GPIO_DeInit(GPIOC, GPIO_PIN_10);
@@ -347,10 +334,9 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef *hspi) {
 
         /**SPI4 GPIO Configuration
         PE2     ------> SPI4_SCK
-        PE4     ------> SPI4_NSS
         PE6     ------> SPI4_MOSI
         */
-        HAL_GPIO_DeInit(GPIOE, GPIO_PIN_2 | GPIO_PIN_4 | GPIO_PIN_6);
+        HAL_GPIO_DeInit(GPIOE, GPIO_PIN_2 | GPIO_PIN_6);
 
         /* SPI4 DMA DeInit */
         HAL_DMA_DeInit(hspi->hdmarx);
