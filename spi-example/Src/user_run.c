@@ -25,6 +25,11 @@ static uint32_t line2TxStart = 0;
 bool flag = true;
 bool flag2 = true;
 
+static uint64_t line1Sent = 0;
+static uint64_t line2Sent = 0;
+static uint64_t line1Received = 0;
+static uint64_t line2Received = 0;
+
 SPI_HandleTypeDef *line1TX;
 SPI_HandleTypeDef *line1RX;
 SPI_HandleTypeDef *line2TX;
@@ -73,12 +78,18 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
         uint32_t ticks = HAL_GetTick() - line2TxStart;
         // received data from peripheral to memory, need to invalidate DCache
         SCB_InvalidateDCache_by_Addr((uint32_t *) line1RxBuffer, BUFFER_SIZE * sizeof(uint16_t));
-        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
+        bool valid = true;
         for (int i = 0; i < BUFFER_SIZE; ++i) {
             if (line1RxBuffer[i] != line2TxBuffer[i]) {
-                int iii = 1;
+                valid = false;
+                break;
             }
         }
+        if (valid) {
+            ++line1Received;
+            HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
+        }
+        float rate = (float) line1Received / (float) line2Sent;
         memset(line1RxBuffer, 0, BUFFER_SIZE);
         // wrote data (with memset) to memory which is used by DMA, need to clean DCache
         SCB_CleanDCache_by_Addr((uint32_t *) line1RxBuffer, BUFFER_SIZE * sizeof(uint16_t));
@@ -88,12 +99,18 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
         uint32_t ticks = HAL_GetTick() - line1TxStart;
         // received data from peripheral to memory, need to invalidate DCache
         SCB_InvalidateDCache_by_Addr((uint32_t *) line2RxBuffer, BUFFER_SIZE * sizeof(uint16_t));
-        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
+        bool valid = true;
         for (int i = 0; i < BUFFER_SIZE; ++i) {
             if (line2RxBuffer[i] != line1TxBuffer[i]) {
-                int iii = 1;
+                valid = false;
+                break;
             }
         }
+        if (valid) {
+            ++line2Received;
+            HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
+        }
+        float rate = (float) line2Received / (float) line1Sent;
         memset(line2RxBuffer, 0, BUFFER_SIZE);
         // wrote data (with memset) to memory which is used by DMA, need to clean DCache
         SCB_CleanDCache_by_Addr((uint32_t *) line2RxBuffer, BUFFER_SIZE * sizeof(uint16_t));
@@ -137,6 +154,8 @@ static int isRxBusy(void) {
 }
 
 static void transmissionTick(void) {
+    bool tx = isTxBusy();
+    bool rx = isRxBusy();
     // check if we can begin receiving
     if (line1RX->State == HAL_SPI_STATE_READY && !isTxBusy()) {
         // we are ready to receive and no one is sending - okay to receive
@@ -153,12 +172,14 @@ static void transmissionTick(void) {
         // we are ready to send and other end is ready to receive
         setTxBusy(1, 1);
         line1TxStart = HAL_GetTick();
+        ++line1Sent;
         HAL_SPI_Transmit_DMA(line1TX, (uint8_t *) line1TxBuffer, BUFFER_SIZE);
     }
     if (line2TX->State == HAL_SPI_STATE_READY && !isRxBusy()) {
         // we are ready to send and other end is ready to receive
         setTxBusy(2, 1);
         line2TxStart = HAL_GetTick();
+        ++line2Sent;
         HAL_SPI_Transmit_DMA(line2TX, (uint8_t *) line2TxBuffer, BUFFER_SIZE);
     }
 }
