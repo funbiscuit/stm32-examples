@@ -71,6 +71,12 @@ static uint8_t channel1rx[SPI_RX_BUFFER_SIZE] __attribute__ ((aligned (SPI_MEM_A
 static uint8_t channel1mem[SPI_BLOCK_SIZE * (SPI_TX_BLOCKS + SPI_RX_BLOCKS)];
 #endif
 
+/**
+ * Internal function, called only when channel is locked
+ * @param spi
+ */
+static void channelTick(SpiProtocol *spi);
+
 static void initMemory(SpiProtocol *spi, uint8_t *tx, uint8_t *rx, uint8_t *mem);
 
 static void processTxQueue(SpiProtocol *spi);
@@ -105,6 +111,53 @@ SpiProtocol *spiProtocolInitialize(SpiProtocolInit *init, uint8_t channel) {
 }
 
 void spiProtocolTick(SpiProtocol *spi) {
+    if (!spi->init.lock())
+        return;
+    channelTick(spi);
+    spi->init.unlock();
+}
+
+void spiProtocolWrite(SpiProtocol *spi, const void *data, uint32_t size) {
+    const uint8_t *d = data;
+    uint32_t sizeLeft = size;
+    SpiProtocolBlock *block;
+
+    while (!spi->init.lock()) {
+        spi->init.delay(1);
+    }
+    while (sizeLeft > 0) {
+        channelTick(spi);
+        if (!getTxBlock(spi, &block, BLOCK_STATE_FREE)) {
+            spi->init.delay(1);
+            continue;
+        }
+
+        uint32_t dataSize = sizeLeft < SPI_BLOCK_SIZE ? sizeLeft : SPI_BLOCK_SIZE;
+        memcpy(block->buffer, d, dataSize);
+
+        block->size = dataSize;
+        block->state = BLOCK_STATE_TX_READY;
+
+        sizeLeft -= dataSize;
+        d += dataSize;
+    }
+    spi->init.unlock();
+    // wait until all blocks are received by the other end
+    bool allReceived = false;
+    while (!allReceived) {
+        allReceived = true;
+        for (int i = 0; i < SPI_TX_BLOCKS; ++i) {
+            if (spi->txBlocks[i].state != BLOCK_STATE_FREE) {
+                allReceived = false;
+                break;
+            }
+        }
+        spiProtocolTick(spi);
+        spi->init.delay(1);
+    }
+}
+
+static void channelTick(SpiProtocol *spi) {
     if (spi->rxPending) {
         SCB_InvalidateDCache_by_Addr((uint32_t *) spi->rxBuffer, SPI_RX_BUFFER_SIZE);
         processRxBuffer(spi);
@@ -127,42 +180,6 @@ void spiProtocolTick(SpiProtocol *spi) {
     if (spi->init.tx->State == HAL_SPI_STATE_READY && spi->init.isTxBusy()) {
         // we are ready to transmit and other side is listening
         processTxQueue(spi);
-    }
-}
-
-void spiProtocolWrite(SpiProtocol *spi, const void *data, uint32_t size) {
-    const uint8_t *d = data;
-    uint32_t sizeLeft = size;
-    SpiProtocolBlock *block;
-
-    while (sizeLeft > 0) {
-        spiProtocolTick(spi);
-        if (!getTxBlock(spi, &block, BLOCK_STATE_FREE)) {
-            spi->init.delay(1);
-            continue;
-        }
-
-        uint32_t dataSize = sizeLeft < SPI_BLOCK_SIZE ? sizeLeft : SPI_BLOCK_SIZE;
-        memcpy(block->buffer, d, dataSize);
-
-        block->size = dataSize;
-        block->state = BLOCK_STATE_TX_READY;
-
-        sizeLeft -= dataSize;
-        d += dataSize;
-    }
-    // wait until all blocks are received by the other end
-    bool allReceived = false;
-    while (!allReceived) {
-        allReceived = true;
-        for (int i = 0; i < SPI_TX_BLOCKS; ++i) {
-            if (spi->txBlocks[i].state != BLOCK_STATE_FREE) {
-                allReceived = false;
-                break;
-            }
-        }
-        spiProtocolTick(spi);
-        spi->init.delay(1);
     }
 }
 

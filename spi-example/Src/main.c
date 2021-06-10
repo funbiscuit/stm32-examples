@@ -66,6 +66,16 @@ const osThreadAttr_t ch2Task_attributes = {
         .priority = (osPriority_t) osPriorityNormal,
         .stack_size = 1024 * 4
 };
+/* Definitions for ch1Mutex */
+osMutexId_t ch1MutexHandle;
+const osMutexAttr_t ch1Mutex_attributes = {
+        .name = "ch1Mutex"
+};
+/* Definitions for ch2Mutex */
+osMutexId_t ch2MutexHandle;
+const osMutexAttr_t ch2Mutex_attributes = {
+        .name = "ch2Mutex"
+};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -142,6 +152,12 @@ int main(void) {
 
     /* Init scheduler */
     osKernelInitialize();
+    /* Create the mutex(es) */
+    /* creation of ch1Mutex */
+    ch1MutexHandle = osMutexNew(&ch1Mutex_attributes);
+
+    /* creation of ch2Mutex */
+    ch2MutexHandle = osMutexNew(&ch2Mutex_attributes);
 
     /* USER CODE BEGIN RTOS_MUTEX */
     /* add mutexes, ... */

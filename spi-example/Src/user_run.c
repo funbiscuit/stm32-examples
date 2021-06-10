@@ -17,6 +17,9 @@ extern SPI_HandleTypeDef hspi3;
 extern SPI_HandleTypeDef hspi4;
 extern SPI_HandleTypeDef hspi5;
 
+extern osMutexId_t ch1MutexHandle;
+extern osMutexId_t ch2MutexHandle;
+
 static uint32_t tx1[BUFFER_SIZE];
 static uint32_t tx2[BUFFER_SIZE];
 
@@ -56,6 +59,14 @@ static bool isRx1Busy(void);
 
 static bool isRx2Busy(void);
 
+static bool lockCh1(void);
+
+static bool lockCh2(void);
+
+static void unlockCh1(void);
+
+static void unlockCh2(void);
+
 _Noreturn void taskChannel1(void) {
     // hspi1 -> hspi3
     // hspi5 -> hspi4
@@ -77,6 +88,8 @@ _Noreturn void taskChannel1(void) {
     ch1init.rx = &hspi4;
     ch1init.setTxBusy = &setTx1Busy;
     ch1init.setRxBusy = &setRx1Busy;
+    ch1init.lock = &lockCh1;
+    ch1init.unlock = &unlockCh1;
 
     SpiProtocol *ch1 = spiProtocolInitialize(&ch1init, 0);
 
@@ -118,6 +131,8 @@ _Noreturn void taskChannel2(void) {
     ch2init.rx = &hspi3;
     ch2init.setTxBusy = &setTx2Busy;
     ch2init.setRxBusy = &setRx2Busy;
+    ch2init.lock = &lockCh2;
+    ch2init.unlock = &unlockCh2;
 
 
     SpiProtocol *ch2 = spiProtocolInitialize(&ch2init, 1);
@@ -196,4 +211,20 @@ static bool isRx1Busy(void) {
 
 static bool isRx2Busy(void) {
     return HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_4) == GPIO_PIN_RESET;
+}
+
+static bool lockCh1(void) {
+    return osMutexAcquire(ch1MutexHandle, 0) == osOK;
+}
+
+static bool lockCh2(void) {
+    return osMutexAcquire(ch2MutexHandle, 0) == osOK;
+}
+
+static void unlockCh1(void) {
+    osMutexRelease(ch1MutexHandle);
+}
+
+static void unlockCh2(void) {
+    osMutexRelease(ch2MutexHandle);
 }

@@ -90,6 +90,17 @@ typedef struct {
      * Returns state of TX busy line (logical AND of two sides)
      */
     bool (*isTxBusy)(void);
+
+    /**
+     * Should try to lock mutex associated with this channel
+     * @return true if mutex was locked
+     */
+    bool (*lock)(void);
+
+    /**
+     * Should release mutex associated with this channel
+     */
+    void (*unlock)(void);
 } SpiProtocolInit;
 
 typedef enum {
