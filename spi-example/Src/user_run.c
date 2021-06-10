@@ -49,17 +49,19 @@ static void setRx1Busy(bool isBusy);
 static void setRx2Busy(bool isBusy);
 
 static bool isTx1Busy(void);
+
 static bool isTx2Busy(void);
 
 static bool isRx1Busy(void);
+
 static bool isRx2Busy(void);
 
 _Noreturn void taskChannel1(void) {
     // hspi1 -> hspi3
     // hspi5 -> hspi4
 
-    // tx1 busy <-> rx2 busy
-    // rx1 busy <-> tx2 busy
+    // tx1 busy PD14 <-> PE4 rx2 busy
+    // rx1 busy PG1  <-> PA4 tx2 busy
     // when tx is busy - it's transmitting
     // when rx is busy - it's receiving
     // busy = low state
@@ -140,10 +142,6 @@ _Noreturn void taskChannel2(void) {
         HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
         osDelay(1);
     }
-}
-
-void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi) {
-    int ii = 0;
 }
 
 static void onDataCh1(const uint8_t *data, uint32_t size) {
