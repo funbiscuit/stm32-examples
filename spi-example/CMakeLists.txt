@@ -14,6 +14,8 @@ add_library(h7_spi_example STATIC
 
 target_sources(h7_spi_example PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/Src/user_run.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/spi_protocol.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/crc32.c
         )
 
 target_include_directories(h7_spi_example PRIVATE
@@ -21,6 +23,9 @@ target_include_directories(h7_spi_example PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/Drivers/STM32H7xx_HAL_Driver/Inc
         ${CMAKE_CURRENT_SOURCE_DIR}/Drivers/CMSIS/Device/ST/STM32H7xx/Include
         ${CMAKE_CURRENT_SOURCE_DIR}/Drivers/CMSIS/Include
+        ${CMAKE_CURRENT_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2
+        ${CMAKE_CURRENT_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source/portable/IAR/ARM_CM4F
         )
 
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/Drivers/STM32H7xx_HAL_Driver/Src HAL_SRC)

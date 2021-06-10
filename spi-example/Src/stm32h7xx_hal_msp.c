@@ -76,6 +76,8 @@ void HAL_MspInit(void) {
     __HAL_RCC_SYSCFG_CLK_ENABLE();
 
     /* System interrupt init*/
+    /* PendSV_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(PendSV_IRQn, 15, 0);
 
     /* USER CODE BEGIN MspInit 1 */
 
@@ -116,8 +118,8 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi) {
         hdma_spi1_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
         hdma_spi1_tx.Init.PeriphInc = DMA_PINC_DISABLE;
         hdma_spi1_tx.Init.MemInc = DMA_MINC_ENABLE;
-        hdma_spi1_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-        hdma_spi1_tx.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+        hdma_spi1_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+        hdma_spi1_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
         hdma_spi1_tx.Init.Mode = DMA_NORMAL;
         hdma_spi1_tx.Init.Priority = DMA_PRIORITY_MEDIUM;
         hdma_spi1_tx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
@@ -128,7 +130,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi) {
         __HAL_LINKDMA(hspi, hdmatx, hdma_spi1_tx);
 
         /* SPI1 interrupt Init */
-        HAL_NVIC_SetPriority(SPI1_IRQn, 0, 0);
+        HAL_NVIC_SetPriority(SPI1_IRQn, 5, 0);
         HAL_NVIC_EnableIRQ(SPI1_IRQn);
         /* USER CODE BEGIN SPI1_MspInit 1 */
 
@@ -167,8 +169,8 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi) {
         hdma_spi3_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
         hdma_spi3_rx.Init.PeriphInc = DMA_PINC_DISABLE;
         hdma_spi3_rx.Init.MemInc = DMA_MINC_ENABLE;
-        hdma_spi3_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-        hdma_spi3_rx.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+        hdma_spi3_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+        hdma_spi3_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
         hdma_spi3_rx.Init.Mode = DMA_NORMAL;
         hdma_spi3_rx.Init.Priority = DMA_PRIORITY_MEDIUM;
         hdma_spi3_rx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
@@ -179,7 +181,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi) {
         __HAL_LINKDMA(hspi, hdmarx, hdma_spi3_rx);
 
         /* SPI3 interrupt Init */
-        HAL_NVIC_SetPriority(SPI3_IRQn, 0, 0);
+        HAL_NVIC_SetPriority(SPI3_IRQn, 5, 0);
         HAL_NVIC_EnableIRQ(SPI3_IRQn);
         /* USER CODE BEGIN SPI3_MspInit 1 */
 
@@ -210,8 +212,8 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi) {
         hdma_spi4_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
         hdma_spi4_rx.Init.PeriphInc = DMA_PINC_DISABLE;
         hdma_spi4_rx.Init.MemInc = DMA_MINC_ENABLE;
-        hdma_spi4_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-        hdma_spi4_rx.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+        hdma_spi4_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+        hdma_spi4_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
         hdma_spi4_rx.Init.Mode = DMA_NORMAL;
         hdma_spi4_rx.Init.Priority = DMA_PRIORITY_MEDIUM;
         hdma_spi4_rx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
@@ -222,7 +224,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi) {
         __HAL_LINKDMA(hspi, hdmarx, hdma_spi4_rx);
 
         /* SPI4 interrupt Init */
-        HAL_NVIC_SetPriority(SPI4_IRQn, 0, 0);
+        HAL_NVIC_SetPriority(SPI4_IRQn, 5, 0);
         HAL_NVIC_EnableIRQ(SPI4_IRQn);
         /* USER CODE BEGIN SPI4_MspInit 1 */
 
@@ -253,8 +255,8 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi) {
         hdma_spi5_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
         hdma_spi5_tx.Init.PeriphInc = DMA_PINC_DISABLE;
         hdma_spi5_tx.Init.MemInc = DMA_MINC_ENABLE;
-        hdma_spi5_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-        hdma_spi5_tx.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+        hdma_spi5_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+        hdma_spi5_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
         hdma_spi5_tx.Init.Mode = DMA_NORMAL;
         hdma_spi5_tx.Init.Priority = DMA_PRIORITY_MEDIUM;
         hdma_spi5_tx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
@@ -265,7 +267,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi) {
         __HAL_LINKDMA(hspi, hdmatx, hdma_spi5_tx);
 
         /* SPI5 interrupt Init */
-        HAL_NVIC_SetPriority(SPI5_IRQn, 0, 0);
+        HAL_NVIC_SetPriority(SPI5_IRQn, 5, 0);
         HAL_NVIC_EnableIRQ(SPI5_IRQn);
         /* USER CODE BEGIN SPI5_MspInit 1 */
 

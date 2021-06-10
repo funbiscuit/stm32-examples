@@ -20,6 +20,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -51,6 +52,20 @@ DMA_HandleTypeDef hdma_spi3_rx;
 DMA_HandleTypeDef hdma_spi4_rx;
 DMA_HandleTypeDef hdma_spi5_tx;
 
+/* Definitions for ch1Task */
+osThreadId_t ch1TaskHandle;
+const osThreadAttr_t ch1Task_attributes = {
+        .name = "ch1Task",
+        .priority = (osPriority_t) osPriorityNormal,
+        .stack_size = 1024 * 4
+};
+/* Definitions for ch2Task */
+osThreadId_t ch2TaskHandle;
+const osThreadAttr_t ch2Task_attributes = {
+        .name = "ch2Task",
+        .priority = (osPriority_t) osPriorityNormal,
+        .stack_size = 1024 * 4
+};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -69,6 +84,11 @@ static void MX_SPI3_Init(void);
 static void MX_SPI4_Init(void);
 
 static void MX_SPI5_Init(void);
+
+void StartChannel1Task(void *argument);
+
+void StartChannel2Task(void *argument);
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -120,12 +140,45 @@ int main(void) {
 
     /* USER CODE END 2 */
 
+    /* Init scheduler */
+    osKernelInitialize();
+
+    /* USER CODE BEGIN RTOS_MUTEX */
+    /* add mutexes, ... */
+    /* USER CODE END RTOS_MUTEX */
+
+    /* USER CODE BEGIN RTOS_SEMAPHORES */
+    /* add semaphores, ... */
+    /* USER CODE END RTOS_SEMAPHORES */
+
+    /* USER CODE BEGIN RTOS_TIMERS */
+    /* start timers, add new ones, ... */
+    /* USER CODE END RTOS_TIMERS */
+
+    /* USER CODE BEGIN RTOS_QUEUES */
+    /* add queues, ... */
+    /* USER CODE END RTOS_QUEUES */
+
+    /* Create the thread(s) */
+    /* creation of ch1Task */
+    ch1TaskHandle = osThreadNew(StartChannel1Task, NULL, &ch1Task_attributes);
+
+    /* creation of ch2Task */
+    ch2TaskHandle = osThreadNew(StartChannel2Task, NULL, &ch2Task_attributes);
+
+    /* USER CODE BEGIN RTOS_THREADS */
+    /* add threads, ... */
+    /* USER CODE END RTOS_THREADS */
+
+    /* Start scheduler */
+    osKernelStart();
+
+    /* We should never get here as control is now taken by the scheduler */
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    userRun();
     /* USER CODE END 3 */
 }
 
@@ -225,7 +278,7 @@ static void MX_SPI1_Init(void) {
     hspi1.Instance = SPI1;
     hspi1.Init.Mode = SPI_MODE_MASTER;
     hspi1.Init.Direction = SPI_DIRECTION_2LINES_TXONLY;
-    hspi1.Init.DataSize = SPI_DATASIZE_16BIT;
+    hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
     hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
     hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
     hspi1.Init.NSS = SPI_NSS_SOFT;
@@ -271,7 +324,7 @@ static void MX_SPI3_Init(void) {
     hspi3.Instance = SPI3;
     hspi3.Init.Mode = SPI_MODE_SLAVE;
     hspi3.Init.Direction = SPI_DIRECTION_2LINES_RXONLY;
-    hspi3.Init.DataSize = SPI_DATASIZE_16BIT;
+    hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
     hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
     hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
     hspi3.Init.NSS = SPI_NSS_SOFT;
@@ -316,7 +369,7 @@ static void MX_SPI4_Init(void) {
     hspi4.Instance = SPI4;
     hspi4.Init.Mode = SPI_MODE_SLAVE;
     hspi4.Init.Direction = SPI_DIRECTION_2LINES_RXONLY;
-    hspi4.Init.DataSize = SPI_DATASIZE_16BIT;
+    hspi4.Init.DataSize = SPI_DATASIZE_8BIT;
     hspi4.Init.CLKPolarity = SPI_POLARITY_LOW;
     hspi4.Init.CLKPhase = SPI_PHASE_1EDGE;
     hspi4.Init.NSS = SPI_NSS_SOFT;
@@ -361,7 +414,7 @@ static void MX_SPI5_Init(void) {
     hspi5.Instance = SPI5;
     hspi5.Init.Mode = SPI_MODE_MASTER;
     hspi5.Init.Direction = SPI_DIRECTION_2LINES_TXONLY;
-    hspi5.Init.DataSize = SPI_DATASIZE_16BIT;
+    hspi5.Init.DataSize = SPI_DATASIZE_8BIT;
     hspi5.Init.CLKPolarity = SPI_POLARITY_LOW;
     hspi5.Init.CLKPhase = SPI_PHASE_1EDGE;
     hspi5.Init.NSS = SPI_NSS_SOFT;
@@ -399,16 +452,16 @@ static void MX_DMA_Init(void) {
 
     /* DMA interrupt init */
     /* DMA1_Stream0_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
     /* DMA1_Stream1_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
     /* DMA1_Stream2_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
     /* DMA1_Stream3_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA1_Stream3_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(DMA1_Stream3_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(DMA1_Stream3_IRQn);
 
 }
@@ -486,6 +539,32 @@ static void MX_GPIO_Init(void) {
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_StartChannel1Task */
+/**
+  * @brief  Function implementing the ch1Task thread.
+  * @param  argument: Not used 
+  * @retval None
+  */
+/* USER CODE END Header_StartChannel1Task */
+void StartChannel1Task(void *argument) {
+    /* USER CODE BEGIN 5 */
+    taskChannel1();
+    /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_StartChannel2Task */
+/**
+* @brief Function implementing the ch2Task thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartChannel2Task */
+void StartChannel2Task(void *argument) {
+    /* USER CODE BEGIN StartChannel2Task */
+    taskChannel2();
+    /* USER CODE END StartChannel2Task */
+}
 
 /**
  * @brief  Period elapsed callback in non blocking mode
