@@ -159,12 +159,16 @@ void spiProtocolWrite(SpiProtocol *spi, const void *data, uint32_t size) {
 
 static void channelTick(SpiProtocol *spi) {
     if (spi->rxPending) {
+#ifdef SPI_CM7_CACHE_USED
         SCB_InvalidateDCache_by_Addr((uint32_t *) spi->rxBuffer, SPI_RX_BUFFER_SIZE);
+#endif
         processRxBuffer(spi);
 
         memset(spi->rxBuffer, 0, SPI_RX_BUFFER_SIZE);
         // wrote data (with memset) to memory which is used by DMA, need to clean DCache
+#ifdef SPI_CM7_CACHE_USED
         SCB_CleanDCache_by_Addr((uint32_t *) spi->rxBuffer, SPI_RX_BUFFER_SIZE);
+#endif
         spi->rxPending = false;
     }
 
@@ -254,7 +258,9 @@ static void processTxQueue(SpiProtocol *spi) {
     }
     *(uint32_t *) spi->txBuffer = crc32post(crc);
 
+#ifdef SPI_CM7_CACHE_USED
     SCB_CleanDCache_by_Addr((uint32_t *) spi->txBuffer, SPI_TX_BUFFER_SIZE);
+#endif
     spi->init.setTxBusy(true);
     HAL_SPI_Transmit_DMA(spi->init.tx, spi->txBuffer, SPI_TX_BUFFER_SIZE);
     spi->txRequired = false;

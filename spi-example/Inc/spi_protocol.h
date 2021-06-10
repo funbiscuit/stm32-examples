@@ -65,8 +65,8 @@ typedef struct {
 
     /**
      * Function that sets RX busy line state.
-     * Line must be implemented in such way that isRxBusy
-     * function will read logical AND of two states.
+     * Line must be implemented in such way that isTxBusy of the other side
+     * will read logical and of this rx busy and its tx busy
      * For example, it can be configure as open drain with pull up
      * And low state will mean its busy
      */
@@ -74,20 +74,20 @@ typedef struct {
 
     /**
      * Function that sets TX busy line state.
-     * Line must be implemented in such way that isTxBusy
-     * function will read logical AND of two states.
+     * Line must be implemented in such way that isRxBusy of the other side
+     * will read logical and of this tx busy and its rx busy
      * For example, it can be configure as open drain with pull up
      * And low state will mean its busy
      */
     void (*setTxBusy)(bool);
 
     /**
-     * Returns state of RX busy line (logical AND of two sides)
+     * Returns state of RX busy line (logical AND of this rx busy and other tx busy)
      */
     bool (*isRxBusy)(void);
 
     /**
-     * Returns state of TX busy line (logical AND of two sides)
+     * Returns state of TX busy line (logical AND of this rx busy and other tx busy)
      */
     bool (*isTxBusy)(void);
 
