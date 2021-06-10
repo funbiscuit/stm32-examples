@@ -133,6 +133,12 @@ typedef struct {
     bool rxPending;
 
     /**
+     * When true, we need to transfer at least header only frame
+     * so other side knows what frames we received and what is lost
+     */
+    bool txRequired;
+
+    /**
      * Ids of frames that were lost/corrupted
      */
     uint8_t lostFrames[SPI_RX_HISTORY];

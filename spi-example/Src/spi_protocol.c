@@ -188,18 +188,14 @@ static void initMemory(SpiProtocol *spi, uint8_t *tx, uint8_t *rx, uint8_t *mem)
 
 static void processTxQueue(SpiProtocol *spi) {
     SpiProtocolBlock *block;
-    //TODO need to send empty frames when not all frames are received in RX queue
-    // this can be done by setting flag in rx function when corrupted frame is received
-    // and by check that we have lost frames
-    if (!getTxBlock(spi, &block, BLOCK_STATE_TX_READY) &&
-        !getTxBlock(spi, &block, BLOCK_STATE_RESEND) &&
-        !getTxBlock(spi, &block, BLOCK_STATE_SENT)) {
+    bool isHeaderOnly = !getTxBlock(spi, &block, BLOCK_STATE_TX_READY) &&
+                        !getTxBlock(spi, &block, BLOCK_STATE_RESEND) &&
+                        !getTxBlock(spi, &block, BLOCK_STATE_SENT);
+    if (isHeaderOnly && !spi->txRequired) {
         return;
     }
 
-    bool isHeaderOnly = false;
-
-    if (block->state == BLOCK_STATE_TX_READY) {
+    if (!isHeaderOnly && block->state == BLOCK_STATE_TX_READY) {
         // check if we have block with the same id in not yet confirmed blocks
         block->frameId = spi->nextFrameId;
         for (int i = 0; i < SPI_TX_BLOCKS; ++i) {
@@ -244,6 +240,7 @@ static void processTxQueue(SpiProtocol *spi) {
     SCB_CleanDCache_by_Addr((uint32_t *) spi->txBuffer, SPI_TX_BUFFER_SIZE);
     spi->init.setTxBusy(true);
     HAL_SPI_Transmit_DMA(spi->init.tx, spi->txBuffer, SPI_TX_BUFFER_SIZE);
+    spi->txRequired = false;
 }
 
 static void processRxBuffer(SpiProtocol *spi) {
@@ -255,6 +252,8 @@ static void processRxBuffer(SpiProtocol *spi) {
     }
 
     bool isHeaderOnly = frame.flags & SPI_FLAG_HEADER_ONLY;
+    // we should always answer with something if we received data
+    spi->txRequired = !isHeaderOnly;
 
     if (!isHeaderOnly) {
         // rxBlocks is prefilled with expected ids, so if we find frame id there
