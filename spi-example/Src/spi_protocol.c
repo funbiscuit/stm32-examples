@@ -87,7 +87,7 @@ static bool getTxBlock(SpiProtocol *spi, SpiProtocolBlock **block,
 
 SpiProtocol *spiProtocolInitialize(SpiProtocolInit *init, uint8_t channel) {
     init->setTxBusy(false);
-    init->setRxBusy(true);
+    init->setRxBusy(false);
     if (channel == 0) {
         initMemory(&channel0, channel0tx, channel0rx, channel0mem);
         memcpy(&channel0.init, init, sizeof(SpiProtocolInit));
@@ -116,16 +116,16 @@ void spiProtocolTick(SpiProtocol *spi) {
     }
 
     // check if we can begin receiving
-    if (spi->init.rx->State == HAL_SPI_STATE_READY && !spi->init.isTxBusy()) {
-//        && getRxBlock(spi, &block, BLOCK_STATE_FREE)) {
-        // we are ready to receive and no one is sending - okay to receive
+    if (spi->init.rx->State == HAL_SPI_STATE_READY && !spi->init.isRxBusy()) {
+        // we are ready to receive and other side is not sending
 
         HAL_SPI_Receive_DMA(spi->init.rx, spi->rxBuffer, SPI_RX_BUFFER_SIZE);
-        spi->init.setRxBusy(false);
+        spi->init.setRxBusy(true);
     }
 
     // process tx queue when we can transmit
-    if (spi->init.tx->State == HAL_SPI_STATE_READY && !spi->init.isRxBusy()) {
+    if (spi->init.tx->State == HAL_SPI_STATE_READY && spi->init.isTxBusy()) {
+        // we are ready to transmit and other side is listening
         processTxQueue(spi);
     }
 }
@@ -197,10 +197,6 @@ static void processTxQueue(SpiProtocol *spi) {
         return;
     }
 
-    // we are ready to send, set tx line to busy state
-    //TODO maybe move lower
-    spi->init.setTxBusy(true);
-
     bool isHeaderOnly = false;
 
     if (block->state == BLOCK_STATE_TX_READY) {
@@ -246,6 +242,7 @@ static void processTxQueue(SpiProtocol *spi) {
     *(uint32_t *) spi->txBuffer = crc32post(crc);
 
     SCB_CleanDCache_by_Addr((uint32_t *) spi->txBuffer, SPI_TX_BUFFER_SIZE);
+    spi->init.setTxBusy(true);
     HAL_SPI_Transmit_DMA(spi->init.tx, spi->txBuffer, SPI_TX_BUFFER_SIZE);
 }
 
@@ -445,7 +442,7 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
         return;
     }
 
-    spi->init.setRxBusy(true);
+    spi->init.setRxBusy(false);
     spi->rxPending = true;
 }
 

@@ -48,19 +48,27 @@ static void setRx1Busy(bool isBusy);
 
 static void setRx2Busy(bool isBusy);
 
-static bool isTxBusy(void);
+static bool isTx1Busy(void);
+static bool isTx2Busy(void);
 
-static bool isRxBusy(void);
+static bool isRx1Busy(void);
+static bool isRx2Busy(void);
 
 _Noreturn void taskChannel1(void) {
     // hspi1 -> hspi3
     // hspi5 -> hspi4
 
+    // tx1 busy <-> rx2 busy
+    // rx1 busy <-> tx2 busy
+    // when tx is busy - it's transmitting
+    // when rx is busy - it's receiving
+    // busy = low state
+
     SpiProtocolInit ch1init;
 
     ch1init.delay = &HAL_Delay;
-    ch1init.isTxBusy = &isTxBusy;
-    ch1init.isRxBusy = &isRxBusy;
+    ch1init.isTxBusy = &isTx1Busy;
+    ch1init.isRxBusy = &isRx1Busy;
     ch1init.onData = &onDataCh1;
 
     ch1init.tx = &hspi1;
@@ -100,8 +108,8 @@ _Noreturn void taskChannel2(void) {
     SpiProtocolInit ch2init;
 
     ch2init.delay = &delay;
-    ch2init.isTxBusy = &isTxBusy;
-    ch2init.isRxBusy = &isRxBusy;
+    ch2init.isTxBusy = &isTx2Busy;
+    ch2init.isRxBusy = &isRx2Busy;
     ch2init.onData = &onDataCh2;
 
     ch2init.tx = &hspi5;
@@ -176,10 +184,18 @@ static void setRx2Busy(bool isBusy) {
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, isBusy ? GPIO_PIN_RESET : GPIO_PIN_SET);
 }
 
-static bool isTxBusy(void) {
+static bool isTx1Busy(void) {
     return HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_14) == GPIO_PIN_RESET;
 }
 
-static bool isRxBusy(void) {
+static bool isTx2Busy(void) {
+    return HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_4) == GPIO_PIN_RESET;
+}
+
+static bool isRx1Busy(void) {
     return HAL_GPIO_ReadPin(GPIOG, GPIO_PIN_1) == GPIO_PIN_RESET;
+}
+
+static bool isRx2Busy(void) {
+    return HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_4) == GPIO_PIN_RESET;
 }
