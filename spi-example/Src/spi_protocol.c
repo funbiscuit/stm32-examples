@@ -227,6 +227,12 @@ static void processTxQueue(SpiProtocol *spi) {
             ++spi->nextFrameId;
         }
     }
+    if (!isHeaderOnly && block->state == BLOCK_STATE_RESEND) {
+        ++spi->resentFrames;
+    }
+    if (isHeaderOnly) {
+        ++spi->sentEmptyFrames;
+    }
     if (!isHeaderOnly) {
         block->state = BLOCK_STATE_SENT;
     }

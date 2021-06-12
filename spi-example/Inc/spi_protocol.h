@@ -165,6 +165,8 @@ typedef struct {
     uint64_t nextFrameId;
 
     uint64_t sentFrames;
+    uint64_t resentFrames;
+    uint64_t sentEmptyFrames;
     uint64_t receivedFrames;
     uint64_t receivedCorruptedFrames;
 } SpiProtocol;
