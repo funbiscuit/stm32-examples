@@ -7,25 +7,23 @@
  * 0x04     u16     Header size (offset to block/data)
  * 0x06     u16     Block/data size
  * 0x08     u32     Flags for this packet
- * 0x0C     u8      Frame id. Used for frame loss detection
- * 0x0D     u8      Number of elements in "last received frames" array (0..10)
- * 0x0E     u8[8]   Ids of frames that were received last
+ * 0x0C     u64     Frame id. Used for frame loss detection
+ * 0x14     u64     Last received and processed frame id
  * 0x20     u8      Number of elements in "lost frames" array (0..8)
- * 0x21     u8[8]   Ids of lost frames
+ * 0x21     u8[8]   Ids (LSB) of lost frames
  */
 #include "spi_protocol.h"
 
 #include <string.h>
 #include <crc.h>
 
-#define OFFSET_HEADER_SIZE  0x04
-#define OFFSET_DATA_SIZE    0x06
-#define OFFSET_FLAGS        0x08
-#define OFFSET_FRAME_ID     0x0C
-#define OFFSET_RECEIVED_LEN 0x0D
-#define OFFSET_RECEIVED_ARR 0x0E
-#define OFFSET_LOST_LEN     0x20
-#define OFFSET_LOST_ARR     0x21
+#define OFFSET_HEADER_SIZE   0x04
+#define OFFSET_DATA_SIZE     0x06
+#define OFFSET_FLAGS         0x08
+#define OFFSET_FRAME_ID      0x0C
+#define OFFSET_LAST_FRAME_ID 0x14
+#define OFFSET_LOST_LEN      0x20
+#define OFFSET_LOST_ARR      0x21
 
 
 #define SPI_HEADER_SIZE 64
@@ -42,10 +40,9 @@
 typedef struct {
     uint16_t headerSize;
     uint32_t flags;
-    uint8_t id;
+    uint64_t id;
 
-    uint8_t received[SPI_RX_HISTORY];
-    uint8_t receivedLen;
+    uint64_t lastProcessedId;
 
     uint8_t lost[SPI_RX_HISTORY];
     uint8_t lostLen;
@@ -191,6 +188,7 @@ static void initMemory(SpiProtocol *spi, uint8_t *tx, uint8_t *rx, uint8_t *mem)
     memset(spi, 0, sizeof(SpiProtocol));
     spi->txBuffer = tx;
     spi->rxBuffer = rx;
+    spi->nextFrameId = 1;
 
     for (int i = 0; i < SPI_TX_BLOCKS; ++i) {
         spi->txBlocks[i].buffer = mem;
@@ -202,7 +200,7 @@ static void initMemory(SpiProtocol *spi, uint8_t *tx, uint8_t *rx, uint8_t *mem)
         spi->rxBlocks[i].buffer = mem;
         spi->rxBlocks[i].size = SPI_BLOCK_SIZE;
         spi->rxBlocks[i].state = BLOCK_STATE_FREE;
-        spi->rxBlocks[i].frameId = i;
+        spi->rxBlocks[i].frameId = i + 1;
         mem += SPI_BLOCK_SIZE;
     }
 }
@@ -236,8 +234,7 @@ static void processTxQueue(SpiProtocol *spi) {
     SpiFrame frame;
     memset(&frame, 0, sizeof(frame));
     frame.headerSize = SPI_HEADER_SIZE;
-    frame.receivedLen = spi->recentFramesLen;
-    memcpy(frame.received, spi->recentFrames, SPI_RX_HISTORY);
+    frame.lastProcessedId = spi->lastProcessedFrame;
     frame.lostLen = spi->lostFramesLen;
     memcpy(frame.lost, spi->lostFrames, SPI_RX_HISTORY);
 
@@ -287,14 +284,6 @@ static void processRxBuffer(SpiProtocol *spi) {
                 block->size = frame.dataSize;
                 memcpy(block->buffer, frame.data, block->size);
                 block->state = BLOCK_STATE_RECEIVED;
-
-                if (spi->recentFramesLen == SPI_RX_HISTORY) {
-                    memmove(spi->recentFrames, &spi->recentFrames[1], (SPI_RX_HISTORY - 1));
-                    spi->recentFrames[SPI_RX_HISTORY - 1] = frame.id;
-                } else {
-                    spi->recentFrames[spi->recentFramesLen] = frame.id;
-                    ++spi->recentFramesLen;
-                }
                 break;
             }
         }
@@ -310,6 +299,7 @@ static void processRxBuffer(SpiProtocol *spi) {
             spi->init.onData(block->buffer, block->size);
             ++spi->receivedFrames;
             ++blocksRemoved;
+            spi->lastProcessedFrame = block->frameId;
         }
     }
 
@@ -320,7 +310,7 @@ static void processRxBuffer(SpiProtocol *spi) {
             spi->rxBlocks[i + blocksRemoved].state = BLOCK_STATE_FREE;
             spi->rxBlocks[i + blocksRemoved].buffer = oldData;
         }
-        uint8_t frameId = spi->rxBlocks[0].frameId;
+        uint64_t frameId = spi->rxBlocks[0].frameId;
         if (blocksRemoved == SPI_RX_BLOCKS) {
             frameId = spi->rxBlocks[SPI_RX_BLOCKS - 1].frameId + 1;
         }
@@ -355,19 +345,17 @@ static void processRxBuffer(SpiProtocol *spi) {
 
 
     // process information about received and lost frames by other side
-    for (int i = 0; i < frame.receivedLen; ++i) {
-        for (int j = 0; j < SPI_TX_BLOCKS; ++j) {
-            if (spi->txBlocks[j].state == BLOCK_STATE_SENT &&
-                spi->txBlocks[j].frameId == frame.received[i]) {
-                spi->txBlocks[j].state = BLOCK_STATE_FREE;
-            }
+    for (int j = 0; j < SPI_TX_BLOCKS; ++j) {
+        if (spi->txBlocks[j].state == BLOCK_STATE_SENT &&
+            spi->txBlocks[j].frameId <= frame.lastProcessedId) {
+            spi->txBlocks[j].state = BLOCK_STATE_FREE;
         }
     }
 
     for (int i = 0; i < frame.lostLen; ++i) {
         for (int j = 0; j < SPI_TX_BLOCKS; ++j) {
             if (spi->txBlocks[j].state == BLOCK_STATE_SENT &&
-                spi->txBlocks[j].frameId == frame.lost[i]) {
+                (spi->txBlocks[j].frameId & 0xFFu) == frame.lost[i]) {
                 spi->txBlocks[j].state = BLOCK_STATE_RESEND;
             }
         }
@@ -392,14 +380,13 @@ static void writeFrame(uint8_t *buffer, SpiFrame frame) {
 
     *(uint16_t *) &buffer[OFFSET_HEADER_SIZE] = frame.headerSize;
 
-    buffer[OFFSET_RECEIVED_LEN] = frame.receivedLen;
-    memcpy(&buffer[OFFSET_RECEIVED_ARR], frame.received, frame.receivedLen);
+    *(uint64_t *) &buffer[OFFSET_LAST_FRAME_ID] = frame.lastProcessedId;
     buffer[OFFSET_LOST_LEN] = frame.lostLen;
     memcpy(&buffer[OFFSET_LOST_ARR], frame.lost, frame.lostLen);
 
     *(uint32_t *) &buffer[OFFSET_FLAGS] = frame.flags;
 
-    buffer[OFFSET_FRAME_ID] = frame.id;
+    *(uint64_t *) &buffer[OFFSET_FRAME_ID] = frame.id;
     *(uint16_t *) &buffer[OFFSET_DATA_SIZE] = frame.dataSize;
 
     if (frame.dataSize > 0) {
@@ -424,15 +411,14 @@ static bool readFrame(uint8_t *buffer, SpiFrame *frame) {
         return false;
     }
 
-    frame->id = buffer[OFFSET_FRAME_ID];
+    frame->id = *(uint64_t *) &buffer[OFFSET_FRAME_ID];
     frame->flags = *(uint32_t *) &buffer[OFFSET_FLAGS];
 
     frame->data = &buffer[frame->headerSize];
+
+    frame->lastProcessedId = *(uint64_t *) &buffer[OFFSET_LAST_FRAME_ID];
     memcpy(frame->lost, &buffer[OFFSET_LOST_ARR], SPI_RX_HISTORY);
     frame->lostLen = buffer[OFFSET_LOST_LEN];
-
-    memcpy(frame->received, &buffer[OFFSET_RECEIVED_ARR], SPI_RX_HISTORY);
-    frame->receivedLen = buffer[OFFSET_RECEIVED_LEN];
 
     return true;
 }

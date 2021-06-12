@@ -119,7 +119,7 @@ typedef struct {
      * Id of frame that carried this block
      * Valid when state becomes BLOCK_STATE_SENT
      */
-    uint8_t frameId;
+    uint64_t frameId;
 
     SpiProtocolBlockState state;
 } SpiProtocolBlock;
@@ -150,18 +150,19 @@ typedef struct {
     bool txRequired;
 
     /**
-     * Ids of frames that were lost/corrupted
+     * Ids of frames that were lost/corrupted (LSB of uint64)
      */
     uint8_t lostFrames[SPI_RX_HISTORY];
     uint8_t lostFramesLen;
 
     /**
-     * Ids of frames that were received recently
+     * Frame id of last data block that was correctly received and
+     * given to user. If data block is still in rx queue, it is
+     * not yet given to user
      */
-    uint8_t recentFrames[SPI_RX_HISTORY];
-    uint8_t recentFramesLen;
+    uint64_t lastProcessedFrame;
 
-    uint8_t nextFrameId;
+    uint64_t nextFrameId;
 
     uint64_t sentFrames;
     uint64_t receivedFrames;
