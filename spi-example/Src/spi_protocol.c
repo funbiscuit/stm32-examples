@@ -227,7 +227,7 @@ static void processTxQueue(SpiProtocol *spi) {
             ++spi->nextFrameId;
         }
     }
-    if (!isHeaderOnly && block->state == BLOCK_STATE_RESEND) {
+    if (!isHeaderOnly && block->state != BLOCK_STATE_TX_READY) {
         ++spi->resentFrames;
     }
     if (isHeaderOnly) {
